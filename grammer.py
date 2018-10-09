@@ -13,6 +13,7 @@ types_count = {}
 bigrams_count = {}
 conditional_probabilities = {}
 type_pos_map = {}
+pos_types = {}
 
 with open(source, newline='') as sourcefile:
     csvreader = csv.DictReader(sourcefile, dialect='unix')
@@ -28,6 +29,7 @@ with open(source, newline='') as sourcefile:
             tagged_tokens.reverse()
             for t in tagged_tokens:
                 types_count[t] = 1 + types_count.get(t, 0)
+                pos_types[t[1]] = pos_types.get(t[1], set()) | {t[0]}
             for b in zip(tagged_tokens, tagged_tokens[1:]):
                 bigrams_count[b] = 1 + bigrams_count.get(b, 0)
 
@@ -53,5 +55,7 @@ for w0, words1 in type_pos_map.items():
         aux_dict[k] = v[0]
     w0_pos_to_pos_w1[w0] = aux_dict
 
+vocabulary = {'mapping': w0_pos_to_pos_w1, 'pos': pos_types}
+
 with open(savefile, mode='bw') as f:
-    pickle.dump(w0_pos_to_pos_w1, f)
+    pickle.dump(vocabulary, f)
