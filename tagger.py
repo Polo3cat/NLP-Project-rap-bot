@@ -4,6 +4,7 @@ import nltk
 import sys
 import csv
 import pickle
+import re
 
 
 class WDG:
@@ -33,9 +34,11 @@ class WDG:
 def lines_to_graph(lines, graph):
     # take care of the first line
     tokens = nltk.tokenize.word_tokenize(lines[0])
+    tokens = list(filter(lambda x: re.fullmatch(r'\w+', x), tokens))
     previous = tuple([x[1] for x in nltk.pos_tag(tokens)])
-    for verse in lines[1:]:
-        tokens = nltk.tokenize.word_tokenize(verse)
+    for line in lines[1:]:
+        tokens = nltk.tokenize.word_tokenize(line)
+        tokens = list(filter(lambda x: re.fullmatch(r'\w+', x), tokens))
         tags = tuple([x[1] for x in nltk.pos_tag(tokens)])
         graph.add_edge(previous, tags)
         previous = tags

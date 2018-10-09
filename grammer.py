@@ -24,7 +24,7 @@ with open(source, newline='') as sourcefile:
         sentences = lyrics.splitlines()
         for sentence in sentences:
             tokens = nltk.tokenize.word_tokenize(sentence)
-            tokens = [x.lower() for x in tokens if re.match(r'\w', x)]
+            tokens = [x.lower() for x in tokens if re.fullmatch(r'\w+', x)]
             tagged_tokens = nltk.pos_tag(tokens)
             tagged_tokens.reverse()
             for t in tagged_tokens:
