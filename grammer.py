@@ -45,5 +45,13 @@ for bigram, probability in conditional_probabilities.items():
     elif w1_pos not in type_pos_map[w0] or type_pos_map[w0][w1_pos][1] > probability:
         type_pos_map[w0][w1_pos] = (w1_type, probability)
 
+# strip away probabilities as they won't be used anymore
+w0_pos_to_pos_w1 = {}
+for w0, words1 in type_pos_map.items():
+    aux_dict = {}
+    for k, v in type_pos_map[w0].items():
+        aux_dict[k] = v[0]
+    w0_pos_to_pos_w1[w0] = aux_dict
+
 with open(savefile, mode='bw') as f:
-    pickle.dump(type_pos_map, f)
+    pickle.dump(w0_pos_to_pos_w1, f)
