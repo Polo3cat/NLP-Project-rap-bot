@@ -2,12 +2,14 @@ import sys
 import nltk
 import csv
 import re
+import pickle
 
 
 source = sys.argv[1]
+savefile = sys.argv[2]
 types_count = {}
 bigrams_count = {}
-conditional_probability_type = {}
+conditional_probabilities = {}
 type_pos_map = {}
 
 with open(source, newline='') as sourcefile:
@@ -20,24 +22,26 @@ with open(source, newline='') as sourcefile:
         for sentence in sentences:
             tokens = nltk.tokenize.word_tokenize(sentence)
             tokens = [x.lower() for x in tokens if re.match(r'\w', x)]
-            tagged_tokens= nltk.pos_tag(tokens)
+            tagged_tokens = nltk.pos_tag(tokens)
             tagged_tokens.reverse()
             for t in tagged_tokens:
                 types_count[t] = 1 + types_count.get(t, 0)
             for b in zip(tagged_tokens, tagged_tokens[1:]):
                 bigrams_count[b] = 1 + bigrams_count.get(b, 0)
 
-    for b in bigrams_count:
-        conditional_probability_type[b] = bigrams_count[b] / types_count[b[1]]
+# P(w1|w0) = C(w0 w1) / C(w0)
+for b in bigrams_count:
+    conditional_probabilities[b] = bigrams_count[b] / types_count[b[0]]
 
-for k, probability in conditional_probability_type.items():
-    w_type = k[0]
-    condition = k[1][0]
-    condition_pos = k[1][1]
-    if w_type not in type_pos_map:
-        type_pos_map[w_type] = {condition_pos: (condition, probability)}
-    elif condition_pos not in type_pos_map[w_type] or type_pos_map[w_type][condition_pos][1] > probability:
-        type_pos_map[w_type][condition_pos] = (condition, probability)
-        
-for k, v in type_pos_map.items():
-    print(k, v)
+# For each w0 keep the highest P for each PoS tag
+for bigram, probability in conditional_probabilities.items():
+    w0 = bigram[0]
+    w1_type = bigram[1][0]
+    w1_pos = bigram[1][1]
+    if w0 not in type_pos_map:
+        type_pos_map[w0] = {w1_pos: (w1_type, probability)}
+    elif w1_pos not in type_pos_map[w0] or type_pos_map[w0][w1_pos][1] > probability:
+        type_pos_map[w0][w1_pos] = (w1_type, probability)
+
+with open(savefile, mode='bw') as f:
+    pickle.dump(type_pos_map, f)
