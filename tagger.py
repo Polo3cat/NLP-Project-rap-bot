@@ -63,5 +63,3 @@ for node in iter(corpus_tags.nodes):
 # save created pairing of grammatical structures in a file so we can retrieve it later
 with open(savefile, mode='bw') as sf:
     pickle.dump(skewed_tags, sf)
-
-print(skewed_tags)
