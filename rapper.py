@@ -96,5 +96,5 @@ while True:
         print(" ".join(reversed(answer)))
     except EOFError as e:
         print()
-        print('Bye')
+        print('Bye!')
         break
