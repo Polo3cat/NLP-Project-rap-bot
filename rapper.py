@@ -39,23 +39,29 @@ class Poet:
             p = NltkInterface.tag_word(word)
             if p == pos:
                 return word
-        if not json:
-            raise NoRhyme
-        return
+        raise NoRhyme
 
 
-class Rapper:
-    def __init__(self, grammar, predecessors, vocabulary, fast_text_keyed_vectors):
+class MetaRapper(type):
+    def __new__(mcs, name, bases, namespace):
+        if '_answer' not in namespace:
+            raise TypeError('_answer was not implemented in {}'.format(name))
+        return super().__new__(mcs, name, bases, namespace)
+
+
+class BaseRapper(metaclass=MetaRapper):
+    """
+    Base class to generate a Rapper. Child classes must implement _answer.
+    """
+    def __init__(self, grammar, predecessors, vocabulary):
         """
         :type grammar: dict
         :type predecessors: dict
         :type vocabulary: dict
-        :type fast_text_keyed_vectors: gensim.models.keyedvectors.FastTextKeyedVectors
         """
         self._grammar = grammar
         self._predecessors = predecessors
         self._vocabulary = vocabulary
-        self._fast_text_keyed_vectors = fast_text_keyed_vectors
 
     def rap(self, sentence):
         """
@@ -66,6 +72,24 @@ class Rapper:
         """
         tokens = NltkInterface.tokenize(sentence)
         gram_struct = NltkInterface.just_tags(tokens)
+        return self._answer(tokens, gram_struct)
+
+    def _answer(self, tokens, gram_struct):
+        raise NotImplementedError
+
+
+class FastTextRapper(BaseRapper):
+    def __init__(self, grammar, predecessors, vocabulary, fast_text_keyed_vectors):
+        """
+        :type grammar: dict
+        :type predecessors: dict
+        :type vocabulary: dict
+        :type fast_text_keyed_vectors: gensim.models.keyedvectors.FastTextKeyedVectors
+        """
+        self._fast_text_keyed_vectors = fast_text_keyed_vectors
+        super(FastTextRapper, self).__init__(grammar, predecessors, vocabulary)
+
+    def _answer(self, tokens, gram_struct):
         try:
             rhyme = Poet.rhyme(tokens[-1], gram_struct[-1])
         except NoRhyme:
@@ -74,21 +98,31 @@ class Rapper:
         previous_w = rhyme
         previous_pos = gram_struct[-1]
         for tag in reversed(gram_struct[:-1]):
-            if (previous_w, previous_pos)not in self._predecessors or \
-                    tag not in self._predecessors[previous_w]:
+            if (previous_w, previous_pos) not in self._predecessors or \
+                    tag not in self._predecessors[(previous_w, previous_pos)]:
                 previous_w = self._find_similar(previous_w, tag)
             else:
-                previous_w = self._predecessors[previous_w][tag]
+                previous_w = self._predecessors[(previous_w, previous_pos)][tag]
+            if not previous_w:
+                return None
             answer.append(previous_w)
             previous_pos = tag
         return " ".join(reversed(answer)).capitalize()
 
     def _find_similar(self, w0, desired_pos):
         w1 = None
-        best_similarity = 10.
+        best_similarity = -1.
         for w in self._vocabulary[desired_pos]:
-            similarity = self._fast_text_keyed_vectors.similarity(w0, w)
-            if best_similarity < similarity:
-                best_similarity = similarity
-                w1 = w
+            try:
+                similarity = self._fast_text_keyed_vectors.similarity(w0, w)
+                if best_similarity < similarity:
+                    best_similarity = similarity
+                    w1 = w
+            except KeyError:
+                continue
         return w1
+
+
+class ExhaustiveRapper(BaseRapper):
+    def _answer(self, tokens, gram_struct):
+        pass
