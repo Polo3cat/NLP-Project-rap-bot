@@ -8,8 +8,7 @@ import pickle
 
 
 source = sys.argv[1]
-savefile_predecesors = sys.argv[2]
-savefile_vocabulary = sys.argv[3]
+savefile = sys.argv[2]
 types_count = {}
 bigrams_count = {}
 conditional_probabilities = {}
@@ -56,7 +55,7 @@ for w0, words1 in type_pos_map.items():
         aux_dict[k] = v[0]
     w0_pos_to_pos_w1[w0] = aux_dict
 
-with open(savefile_vocabulary, mode='bw') as f:
-    pickle.dump(pos_types, f)
-with open(savefile_predecesors, mode='bw') as f:
-    pickle.dump(w0_pos_to_pos_w1, f)
+vocabulary = {'mapping': w0_pos_to_pos_w1, 'pos': pos_types}
+
+with open(savefile, mode='bw') as f:
+    pickle.dump(vocabulary, f)
