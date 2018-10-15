@@ -1,3 +1,5 @@
+import re
+import nltk
 from gensim.models import fasttext
 from sys import argv
 import csv
@@ -8,17 +10,20 @@ destiny = argv[2]
 
 
 class SentenceGen:
-    def __init__(self, csvreader):
-        self.csvreader = csvreader
+    reg = re.compile(r'\w+')
+
+    def __init__(self, r):
+        self.r = r
 
     def __iter__(self):
-        for row in self.csvreader:
+        for row in self.r:
             lyrics = row['lyrics']
             if not lyrics:
                 continue
             lines = lyrics.splitlines()
             for l in lines:
-                yield l
+                tokens = nltk.tokenize.word_tokenize(l)
+                yield [x.lower() for x in tokens if self.reg.fullmatch(x)]
 
 
 with open(source, newline='') as sourcefile:
