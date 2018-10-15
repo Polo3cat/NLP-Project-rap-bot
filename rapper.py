@@ -72,13 +72,15 @@ class Rapper:
             return None
         answer = [rhyme]
         previous_w = rhyme
+        previous_pos = gram_struct[-1]
         for tag in reversed(gram_struct[:-1]):
-            if previous_w not in self._predecessors or \
+            if (previous_w, previous_pos)not in self._predecessors or \
                     tag not in self._predecessors[previous_w]:
                 previous_w = self._find_similar(previous_w, tag)
             else:
                 previous_w = self._predecessors[previous_w][tag]
             answer.append(previous_w)
+            previous_pos = tag
         return " ".join(reversed(answer)).capitalize()
 
     def _find_similar(self, w0, desired_pos):
