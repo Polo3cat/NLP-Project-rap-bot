@@ -9,7 +9,8 @@ import pickle
 
 
 source = sys.argv[1]
-savefile = sys.argv[2]
+savefile_table = sys.argv[2]
+savefile_hash = sys.argv[3]
 types_count = {}
 bigrams_count = {}
 conditional_probabilities = {}
@@ -55,17 +56,20 @@ for b in bigrams_count:
         sh_count += 1
     row = silly_hash[w0]
     col = silly_hash[w1]
-    prob_table[row, col] = bigrams_count[b] / types_count[w0]
+    prob_table[row, col] = (bigrams_count[b] + 1) / (types_count[w0] + total_w)
 
 for i in range(len(prob_table)):
-    for w in types_count:
-        if w not in silly_hash:
-            silly_hash[w] = sh_count
-            silly_vector[sh_count] = w
-            sh_count += 1
-        j = silly_hash[w]
+    for j in range(len(prob_table)):
         if not prob_table[i, j]:
-            prob_table[i, j] = .4 * types_count[silly_vector[j]] / total_w
-ret = {'table': prob_table, 'hash': silly_hash}
-with open(savefile, mode='bw') as f:
-    pickle.dump(ret, f)
+            prob_table[i, j] = 1 / total_w
+
+for w in types_count:
+    if w not in silly_hash:
+        silly_hash[w] = sh_count
+        silly_vector[sh_count] = w
+        sh_count += 1
+print(sys.getsizeof(prob_table))
+with open(savefile_table, mode='bw') as f:
+    np.save(f, prob_table, allow_pickle=False)
+with open(savefile_hash, mode='bw') as f:
+    pickle.dump({'hash': silly_hash, 'vector': silly_vector}, f)
