@@ -29,30 +29,32 @@ class NltkInterface:
 
 
 class Poet:
-    uri = "https://api.datamuse.com/words?rel_rhy={}"
+    uris = ["https://api.datamuse.com/words?rel_rhy={}", "http://rhymebrain.com/talk?function=getRhymes&word={}"]
 
     @classmethod
     def rhyme(cls, word, pos):
-        url = cls.uri.format(word)
-        r = requests.get(url)
-        json = r.json()
-        for j in json:
-            word = j['word']
-            p = NltkInterface.tag_word(word)
-            if p == pos:
-                return word
+        for uri in cls.uris:
+            url = uri.format(word)
+            r = requests.get(url)
+            json = r.json()
+            for j in json:
+                word = j['word']
+                p = NltkInterface.tag_word(word)
+                if p == pos:
+                    return word
         raise NoRhyme
 
     @classmethod
     def rhyme_in(cls, word, pos, bag):
-        url = cls.uri.format(word)
-        r = requests.get(url)
-        json = r.json()
-        for j in json:
-            word = j['word']
-            p = NltkInterface.tag_word(word)
-            if p == pos and word in bag:
-                return word
+        for uri in cls.uris:
+            url = uri.format(word)
+            r = requests.get(url)
+            json = r.json()
+            for j in json:
+                word = j['word']
+                p = NltkInterface.tag_word(word)
+                if p == pos and word in bag:
+                    return word
         raise NoRhyme
 
 
