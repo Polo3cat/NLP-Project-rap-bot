@@ -144,7 +144,8 @@ class FastTextRapper(BaseRapper):
 
 class ExhaustiveRapper(BaseRapper):
     """
-    Back tracking Rapper that uses a table containing all the bi-gram probabilities to look for predecessors
+    Back tracking Rapper that uses a table containing all the bi-gram probabilities to look for predecessors.
+    The matrix is stored as a csr (Compressed Sparse Row) matrix, so it is much more compact
     """
 
     def _answer(self, tokens, gram_struct):
@@ -160,7 +161,7 @@ class ExhaustiveRapper(BaseRapper):
             return []
         silly_hash = self._predecessors['hash']
         silly_vector = self._predecessors['vector']
-        row = -self._predecessors['table'][silly_hash[word]]  # negate to use ascending order
+        row = -self._predecessors['table'].getrow(silly_hash[word]).toarray()[0, :]  # negate to use ascending order
         drow = np.arange(len(row))
         stacked = np.array(list(zip(row, drow)), dtype=[('probability', float), ('index', int)])
         row = np.sort(stacked, kind='heapsort', order='probability')
