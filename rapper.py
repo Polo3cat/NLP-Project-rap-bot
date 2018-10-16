@@ -1,3 +1,5 @@
+import numpy as np
+
 import nltk
 import re
 
@@ -41,6 +43,18 @@ class Poet:
                 return word
         raise NoRhyme
 
+    @classmethod
+    def rhyme_in(cls, word, pos, bag):
+        url = cls.uri.format(word)
+        r = requests.get(url)
+        json = r.json()
+        for j in json:
+            word = j['word']
+            p = NltkInterface.tag_word(word)
+            if p == pos and word in bag:
+                return word
+        raise NoRhyme
+
 
 class MetaRapper(type):
     def __new__(mcs, name, bases, namespace):
@@ -53,6 +67,7 @@ class BaseRapper(metaclass=MetaRapper):
     """
     Base class to generate a Rapper. Child classes must implement _answer.
     """
+
     def __init__(self, grammar, predecessors, vocabulary):
         """
         :type grammar: dict
@@ -79,6 +94,10 @@ class BaseRapper(metaclass=MetaRapper):
 
 
 class FastTextRapper(BaseRapper):
+    """
+    Rapper that uses fast-text to look for similar words when it can't find a predecessor
+    """
+
     def __init__(self, grammar, predecessors, vocabulary, fast_text_keyed_vectors):
         """
         :type grammar: dict
@@ -124,5 +143,34 @@ class FastTextRapper(BaseRapper):
 
 
 class ExhaustiveRapper(BaseRapper):
+    """
+    Back tracking Rapper that uses a table containing all the bi-gram probabilities to look for predecessors
+    """
+
     def _answer(self, tokens, gram_struct):
-        pass
+        try:
+            rhyme = Poet.rhyme_in(tokens[-1], gram_struct[-1], self._vocabulary[gram_struct[-1]])
+            answer = [rhyme] + self._rec_answer((rhyme, gram_struct[-1]), gram_struct[:-1])
+            return " ".join(reversed(answer)).capitalize()
+        except NoRhyme:
+            return None
+
+    def _rec_answer(self, word, structure):
+        if not structure:
+            return []
+        silly_hash = self._predecessors['hash']
+        silly_vector = self._predecessors['vector']
+        row = -self._predecessors['table'][silly_hash[word]]  # negate to use ascending order
+        drow = np.arange(len(row))
+        stacked = np.array(list(zip(row, drow)), dtype=[('probability', float), ('index', int)])
+        row = np.sort(stacked, kind='heapsort', order='probability')
+        row['probability'] *= -1
+        it = np.nditer(row, flags=['f_index'])
+        while not it.finished:
+            w = silly_vector[it[0]['index']]
+            if w[1] == structure[-1]:
+                ans = self._rec_answer(w, structure[:-1])
+                if ans is not None:
+                    return [w[0]] + ans
+            it.iternext()
+        return None
