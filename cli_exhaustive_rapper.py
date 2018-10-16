@@ -1,6 +1,6 @@
 import argparse
 import pickle
-import numpy as np
+from scipy.sparse import load_npz
 from rapper import ExhaustiveRapper
 
 parser = argparse.ArgumentParser(prog="The Rapper")
@@ -14,7 +14,7 @@ args = parser.parse_args()
 with open(args.g, mode='br') as f:
     grammar = pickle.load(f)
 with open(args.t, mode='br') as f:
-    table = np.load(f)
+    table = load_npz(f)
 with open(args.v, mode='br') as f:
     vocabulary = pickle.load(f)
 with open(args.p, mode='br') as f:
