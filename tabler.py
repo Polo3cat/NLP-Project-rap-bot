@@ -1,12 +1,11 @@
 #!/bin/python3
 
+import csv
+import pickle
+import re
 import sys
 import nltk
-import csv
-import re
-import numpy as np
-import pickle
-
+from scipy.sparse import lil_matrix, save_npz
 
 source = sys.argv[1]
 savefile_table = sys.argv[2]
@@ -40,7 +39,7 @@ with open(source, newline='') as sourcefile:
 sh_count = 0
 silly_hash = {}
 silly_vector = [None]*len(types_count)
-prob_table = np.empty((len(types_count), len(types_count)))
+prob_table = lil_matrix((len(types_count), len(types_count)))
 
 # P(w1|w0) = C(w0 w1) / C(w0)
 for b in bigrams_count:
@@ -58,18 +57,15 @@ for b in bigrams_count:
     col = silly_hash[w1]
     prob_table[row, col] = (bigrams_count[b] + 1) / (types_count[w0] + total_w)
 
-for i in range(len(prob_table)):
-    for j in range(len(prob_table)):
-        if not prob_table[i, j]:
-            prob_table[i, j] = 1 / total_w
+prob_table = prob_table.tocsr(copy=True)
 
 for w in types_count:
     if w not in silly_hash:
         silly_hash[w] = sh_count
         silly_vector[sh_count] = w
         sh_count += 1
-print(sys.getsizeof(prob_table))
+
 with open(savefile_table, mode='bw') as f:
-    np.save(f, prob_table, allow_pickle=False)
+    save_npz(f, prob_table)
 with open(savefile_hash, mode='bw') as f:
     pickle.dump({'hash': silly_hash, 'vector': silly_vector}, f)
