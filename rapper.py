@@ -70,14 +70,12 @@ class BaseRapper(metaclass=MetaRapper):
     Base class to generate a Rapper. Child classes must implement _answer.
     """
 
-    def __init__(self, grammar, predecessors, vocabulary):
+    def __init__(self, grammar, vocabulary):
         """
         :type grammar: dict
-        :type predecessors: dict
         :type vocabulary: dict
         """
         self._grammar = grammar
-        self._predecessors = predecessors
         self._vocabulary = vocabulary
 
     def rap(self, sentence):
@@ -108,7 +106,8 @@ class FastTextRapper(BaseRapper):
         :type fast_text_keyed_vectors: gensim.models.keyedvectors.FastTextKeyedVectors
         """
         self._fast_text_keyed_vectors = fast_text_keyed_vectors
-        super(FastTextRapper, self).__init__(grammar, predecessors, vocabulary)
+        self._predecessors = predecessors
+        super(FastTextRapper, self).__init__(grammar, vocabulary)
 
     def _answer(self, tokens, gram_struct):
         try:
@@ -149,6 +148,9 @@ class ExhaustiveRapper(BaseRapper):
     Back tracking Rapper that uses a table containing all the bi-gram probabilities to look for predecessors.
     The matrix is stored as a csr (Compressed Sparse Row) matrix, so it is much more compact
     """
+    def __init__(self, grammar, vocabulary, table):
+        self._table = table
+        super(ExhaustiveRapper, self).__init__(grammar, vocabulary)
 
     def _answer(self, tokens, gram_struct):
         try:
@@ -161,9 +163,9 @@ class ExhaustiveRapper(BaseRapper):
     def _rec_answer(self, word, structure):
         if not structure:
             return []
-        silly_hash = self._predecessors['hash']
-        silly_vector = self._predecessors['vector']
-        row = -self._predecessors['table'].getrow(silly_hash[word]).toarray()[0, :]  # negate to use ascending order
+        silly_hash = self._table['hash']
+        silly_vector = self._table['vector']
+        row = -self._table['table'].getrow(silly_hash[word]).toarray()[0, :]  # negate to use ascending order
         drow = np.arange(len(row))
         stacked = np.array(list(zip(row, drow)), dtype=[('probability', float), ('index', int)])
         row = np.sort(stacked, kind='heapsort', order='probability')

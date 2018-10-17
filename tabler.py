@@ -5,11 +5,10 @@ import pickle
 import re
 import sys
 import nltk
-from scipy.sparse import lil_matrix, save_npz
+from scipy.sparse import lil_matrix
 
 source = sys.argv[1]
-savefile_table = sys.argv[2]
-savefile_hash = sys.argv[3]
+savefile = sys.argv[2]
 types_count = {}
 bigrams_count = {}
 conditional_probabilities = {}
@@ -65,7 +64,5 @@ for w in types_count:
         silly_vector[sh_count] = w
         sh_count += 1
 
-with open(savefile_table, mode='bw') as f:
-    save_npz(f, prob_table)
-with open(savefile_hash, mode='bw') as f:
-    pickle.dump({'hash': silly_hash, 'vector': silly_vector}, f)
+with open(savefile, mode='bw') as f:
+    pickle.dump({'hash': silly_hash, 'vector': silly_vector, 'table': prob_table}, f)
