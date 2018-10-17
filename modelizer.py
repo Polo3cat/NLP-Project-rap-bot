@@ -1,16 +1,20 @@
+#! /bin/python3
+
 import argparse
 import pickle
 from csv import DictReader
 
-from counter import Counter
-from grammer import Grammer
-from interfaces import NltkInterface
-from predecessorer import Predecessorer
-from tabler import Tabler
+from modelize.counter import Counter
+from modelize.grammer import Grammer
+from modelize.vectorizer import Vectorizer
+from utils.interfaces import NltkInterface
+from modelize.predecessorer import Predecessorer
+from modelize.tabler import Tabler
 
 parser = argparse.ArgumentParser(prog="Modelizer")
 parser.add_argument('-o', help="output file for model", required=True)
 parser.add_argument('-i', help="input csv file", required=True)
+parser.add_argument('-m', help="model to generate: table or vector", default='table')
 
 args = parser.parse_args()
 
@@ -32,10 +36,18 @@ with open(args.i, newline='') as i:
             counter.feed(tagged_tokens)
         grammer.feed(song_tags)
 
-tabler = Tabler(counter)
-predecessorer = Predecessorer(counter)
+output = {'grammar': grammer.result(), 'vocabulary': counter.vocabulary(),}
 
-output = {'table': tabler.result(), 'grammar': grammer.result(),
-          'predecessors': predecessorer.result(), 'vocabulary': counter.vocabulary()}
+if args.m == 'vector':
+    predecessorer = Predecessorer(counter)
+    output['predecessors'] = predecessorer.result()
+    with open(args.i, newline='') as i:
+        csvreader = DictReader(i, dialect='unix')
+        vectorizer = Vectorizer(csvreader)
+        output['ftvectors'] = vectorizer.result()
+else:
+    tabler = Tabler(counter)
+    output['table'] = tabler.result()
+
 with open(args.o, mode='bw') as f:
     pickle.dump(output, f)

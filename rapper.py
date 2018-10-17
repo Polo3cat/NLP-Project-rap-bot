@@ -2,7 +2,7 @@ import numpy as np
 
 import requests
 
-from interfaces import NltkInterface
+from utils.interfaces import NltkInterface
 
 
 class NoRhyme(BaseException):
