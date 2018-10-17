@@ -1,68 +1,41 @@
 #!/bin/python3
 
-import csv
-import pickle
-import re
-import sys
-import nltk
 from scipy.sparse import lil_matrix
 
-source = sys.argv[1]
-savefile = sys.argv[2]
-types_count = {}
-bigrams_count = {}
-conditional_probabilities = {}
-type_pos_map = {}
-pos_types = {}
-total_w = 0
 
-with open(source, newline='') as sourcefile:
-    csvreader = csv.DictReader(sourcefile, dialect='unix')
-    for row in csvreader:
-        lyrics = row['lyrics']
-        if not lyrics:
-            continue
-        sentences = lyrics.splitlines()
-        for sentence in sentences:
-            tokens = nltk.tokenize.word_tokenize(sentence)
-            tokens = [x.lower() for x in tokens if re.fullmatch(r'\w+', x)]
-            tagged_tokens = nltk.pos_tag(tokens)
-            tagged_tokens.reverse()
-            for t in tagged_tokens:
-                types_count[t] = 1 + types_count.get(t, 0)
-                pos_types[t[1]] = pos_types.get(t[1], set()) | {t[0]}
-                total_w += 1
-            for b in zip(tagged_tokens, tagged_tokens[1:]):
-                bigrams_count[b] = 1 + bigrams_count.get(b, 0)
+class Tabler:
+    def __init__(self, counter):
+        self._types_count = counter.get_types_counter()
+        self._bigrams_count = counter.get_bigrams_counter()
+        self._total_w = counter.get_total_w()
 
-sh_count = 0
-silly_hash = {}
-silly_vector = [None]*len(types_count)
-prob_table = lil_matrix((len(types_count), len(types_count)))
+    def result(self):
+        sh_count = 0
+        silly_hash = {}
+        silly_vector = [None]*len(self._types_count)
+        prob_table = lil_matrix((len(self._types_count), len(self._types_count)))
 
-# P(w1|w0) = C(w0 w1) / C(w0)
-for b in bigrams_count:
-    w0 = b[0]
-    w1 = b[1]
-    if w0 not in silly_hash:
-        silly_hash[w0] = sh_count
-        silly_vector[sh_count] = w0
-        sh_count += 1
-    if w1 not in silly_hash:
-        silly_hash[w1] = sh_count
-        silly_vector[sh_count] = w1
-        sh_count += 1
-    row = silly_hash[w0]
-    col = silly_hash[w1]
-    prob_table[row, col] = (bigrams_count[b] + 1) / (types_count[w0] + total_w)
+        # P(w1|w0) = C(w0 w1) / C(w0)
+        for b in self._bigrams_count:
+            w0 = b[0]
+            w1 = b[1]
+            if w0 not in silly_hash:
+                silly_hash[w0] = sh_count
+                silly_vector[sh_count] = w0
+                sh_count += 1
+            if w1 not in silly_hash:
+                silly_hash[w1] = sh_count
+                silly_vector[sh_count] = w1
+                sh_count += 1
+            row = silly_hash[w0]
+            col = silly_hash[w1]
+            prob_table[row, col] = (self._bigrams_count[b] + 1) / (self._types_count[w0] + self._total_w)
 
-prob_table = prob_table.tocsr(copy=True)
+        prob_table = prob_table.tocsr(copy=True)
 
-for w in types_count:
-    if w not in silly_hash:
-        silly_hash[w] = sh_count
-        silly_vector[sh_count] = w
-        sh_count += 1
-
-with open(savefile, mode='bw') as f:
-    pickle.dump({'hash': silly_hash, 'vector': silly_vector, 'table': prob_table}, f)
+        for w in self._types_count:
+            if w not in silly_hash:
+                silly_hash[w] = sh_count
+                silly_vector[sh_count] = w
+                sh_count += 1
+        return {'table': prob_table, 'hash': silly_hash, 'vector': silly_vector}

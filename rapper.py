@@ -1,31 +1,12 @@
 import numpy as np
 
-import nltk
-import re
-
 import requests
+
+from interfaces import NltkInterface
 
 
 class NoRhyme(BaseException):
     pass
-
-
-class NltkInterface:
-    reg_exp = re.compile(r'\w+')
-
-    @classmethod
-    def tokenize(cls, sentence):
-        tokens = nltk.tokenize.word_tokenize(sentence)
-        return list(filter(lambda x: cls.reg_exp.fullmatch(x), tokens))
-
-    @classmethod
-    def just_tags(cls, tokens):
-        t = nltk.pos_tag(tokens)
-        return tuple([x[1] for x in t])
-
-    @classmethod
-    def tag_word(cls, word):
-        return nltk.pos_tag([word])[0][1]
 
 
 class Poet:
