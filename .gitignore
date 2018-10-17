@@ -111,3 +111,6 @@ venv.bak/
 
 # csv
 *.csv
+
+# Doxygen
+Doxyfile
