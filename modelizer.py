@@ -7,16 +7,22 @@ from csv import DictReader
 from modelize.counter import Counter
 from modelize.grammer import Grammer
 from modelize.vectorizer import Vectorizer
-from utils.interfaces import NltkInterface
 from modelize.predecessorer import Predecessorer
 from modelize.tabler import Tabler
+import utils.interfaces
+
 
 parser = argparse.ArgumentParser(prog="Modelizer")
 parser.add_argument('-o', help="output file for model", required=True)
 parser.add_argument('-i', help="input csv file", required=True)
-parser.add_argument('-m', help="model to generate: table or vector", default='table')
+parser.add_argument('-m', help="model to generate: table or vector", default='table', choices=['table', 'vector'])
+parser.add_argument('-g', help="use a more general grammar", action='store_true')
 
 args = parser.parse_args()
+
+nltki = utils.interfaces.NltkInterface
+if args.g:
+    nltki = utils.interfaces.NltkInterfaceGeneralised
 
 counter = Counter()
 grammer = Grammer()
@@ -30,13 +36,13 @@ with open(args.i, newline='') as i:
         lines = lyrics.splitlines()
         song_tags = []
         for line in lines:
-            tokens = NltkInterface.tokenize(line)
-            tagged_tokens = NltkInterface.tag(tokens)
-            song_tags.append(NltkInterface.strip_words(tagged_tokens))
+            tokens = nltki.tokenize(line)
+            tagged_tokens = nltki.tag(tokens)
+            song_tags.append(nltki.strip_words(tagged_tokens))
             counter.feed(tagged_tokens)
         grammer.feed(song_tags)
 
-output = {'grammar': grammer.result(), 'vocabulary': counter.vocabulary(),}
+output = {'grammar': grammer.result(), 'vocabulary': counter.vocabulary(), }
 
 if args.m == 'vector':
     predecessorer = Predecessorer(counter)
