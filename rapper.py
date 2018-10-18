@@ -1,8 +1,10 @@
-import numpy as np
+import random
 
+import numpy as np
 import requests
 
 from utils.interfaces import NltkInterface
+from utils.interfaces import NltkInterfaceGeneralised
 
 
 class NoRhyme(BaseException):
@@ -10,33 +12,79 @@ class NoRhyme(BaseException):
 
 
 class Poet:
-    uris = ["https://api.datamuse.com/words?rel_rhy={}", "http://rhymebrain.com/talk?function=getRhymes&word={}"]
+    def __init__(self, nltki=NltkInterface):
+        self._uris = ["https://api.datamuse.com/words?rel_rhy={}", "http://rhymebrain.com/talk?function=getRhymes&word={}"]
+        self._nltki = nltki
 
     @classmethod
-    def rhyme(cls, word, pos):
-        for uri in cls.uris:
+    def _leven_distance(cls, str1, str2):
+        d = dict()
+        for i in range(len(str1) + 1):
+            d[i] = dict()
+            d[i][0] = i
+        for i in range(len(str2) + 1):
+            d[0][i] = i
+        for i in range(1, len(str1) + 1):
+            for j in range(1, len(str2) + 1):
+                d[i][j] = min(d[i][j - 1] + 1, d[i - 1][j] + 1, d[i - 1][j - 1] + (not str1[i - 1] == str2[j - 1]))
+        return d[len(str1)][len(str2)]
+
+    def rhyme(self, word, pos):
+        for uri in self._uris:
             url = uri.format(word)
             r = requests.get(url)
             json = r.json()
             for j in json:
                 word = j['word']
-                p = NltkInterface.tag_word(word)
+                p = self._nltki.tag_word(word)
                 if p == pos:
                     return word
         raise NoRhyme
 
-    @classmethod
-    def rhyme_in(cls, word, pos, bag):
-        for uri in cls.uris:
+    def rhyme_in(self, word, pos, bag):
+        for uri in self._uris:
             url = uri.format(word)
             r = requests.get(url)
             json = r.json()
             for j in json:
                 word = j['word']
-                p = NltkInterface.tag_word(word)
+                p = self._nltki.tag_word(word)
+                print(word, p)
                 if p == pos and word in bag:
                     return word
         raise NoRhyme
+
+    def rhyme_random(self, word, pos):
+        candidates = []
+        for uri in self._uris:
+            url = uri.format(word)
+            r = requests.get(url)
+            json = r.json()
+            for j in json:
+                word = j['word']
+                p = self._nltki.tag_word(word)
+                if p == pos:
+                    candidates.append(word)
+        if not candidates:
+            raise NoRhyme
+        return random.choice(candidates[:5])
+
+    @classmethod
+    def find_closest(cls, word, bag):
+        best_leven = 100
+        best_w = None
+        for w in bag:
+            leven = cls._leven_distance(word, w)
+            if leven < best_leven:
+                best_leven = leven
+                best_w = w
+        return best_w
+
+    def tokenize(self, sentence):
+        return self._nltki.tokenize(sentence)
+
+    def just_tags(self, tokens):
+        return self._nltki.just_tags(tokens)
 
 
 class MetaRapper(type):
@@ -58,6 +106,7 @@ class BaseRapper(metaclass=MetaRapper):
         """
         self._grammar = grammar
         self._vocabulary = vocabulary
+        self._poet = Poet()
 
     def rap(self, sentence):
         """
@@ -66,9 +115,11 @@ class BaseRapper(metaclass=MetaRapper):
         :return: a rhyming sentence
         :rtype str | None
         """
-        tokens = NltkInterface.tokenize(sentence)
-        gram_struct = NltkInterface.just_tags(tokens)
-        return self._answer(tokens, gram_struct)
+        tokens = self._poet.tokenize(sentence)
+        gram_struct = self._poet.just_tags(tokens)
+        if tokens and gram_struct:
+            return self._answer(tokens, gram_struct)
+        return None
 
     def _answer(self, tokens, gram_struct):
         raise NotImplementedError
@@ -92,7 +143,7 @@ class FastTextRapper(BaseRapper):
 
     def _answer(self, tokens, gram_struct):
         try:
-            rhyme = Poet.rhyme(tokens[-1], gram_struct[-1])
+            rhyme = self._poet.rhyme(tokens[-1], gram_struct[-1])
         except NoRhyme:
             return None
         answer = [rhyme]
@@ -135,8 +186,11 @@ class ExhaustiveRapper(BaseRapper):
 
     def _answer(self, tokens, gram_struct):
         try:
-            rhyme = Poet.rhyme_in(tokens[-1], gram_struct[-1], self._vocabulary[gram_struct[-1]])
-            answer = [rhyme] + self._rec_answer((rhyme, gram_struct[-1]), gram_struct[:-1])
+            rhyme = self._poet.rhyme_random(tokens[-1], gram_struct[-1])
+            answer = [rhyme]
+            if rhyme not in self._vocabulary[gram_struct[-1]]:
+                rhyme = self._poet.find_closest(rhyme, self._vocabulary[gram_struct[-1]])
+            answer = answer + self._rec_answer((rhyme, gram_struct[-1]), gram_struct[:-1])
             return " ".join(reversed(answer)).capitalize()
         except NoRhyme:
             return None
@@ -150,7 +204,6 @@ class ExhaustiveRapper(BaseRapper):
         drow = np.arange(len(row))
         stacked = np.array(list(zip(row, drow)), dtype=[('probability', float), ('index', int)])
         row = np.sort(stacked, kind='heapsort', order='probability')
-        row['probability'] *= -1
         it = np.nditer(row, flags=['f_index'])
         while not it.finished:
             w = silly_vector[it[0]['index']]
@@ -160,3 +213,12 @@ class ExhaustiveRapper(BaseRapper):
                     return [w[0]] + ans
             it.iternext()
         return None
+
+
+class GeneralisedRapper(ExhaustiveRapper):
+    def __init__(self, grammar, vocabulary, table):
+        super().__init__(grammar, vocabulary, table)
+        self._poet = Poet(nltki=NltkInterfaceGeneralised)
+
+    def _answer(self, tokens, gram_struct):
+        return super()._answer(tokens, gram_struct)
