@@ -1,6 +1,6 @@
 import argparse
 import pickle
-from rapper import ExhaustiveRapper
+from rapper import GeneralisedRapper
 
 parser = argparse.ArgumentParser(prog="The Rapper")
 parser.add_argument('-m', help="Model", required=True)
@@ -14,7 +14,7 @@ grammar = model['grammar']
 table = model['table']
 vocabulary = model['vocabulary']
 
-rapper = ExhaustiveRapper(grammar, vocabulary, table)
+rapper = GeneralisedRapper(grammar, vocabulary, table)
 while True:
     try:
         s = input("->")
