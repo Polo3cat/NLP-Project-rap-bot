@@ -29,7 +29,7 @@ class Tabler:
                 sh_count += 1
             row = silly_hash[w0]
             col = silly_hash[w1]
-            prob_table[row, col] = (self._bigrams_count[b] + 1) / (self._types_count[w0] + self._total_w)
+            prob_table[row, col] = self._bigrams_count[b] / self._types_count[w0]
 
         prob_table = prob_table.tocsr(copy=True)
 
