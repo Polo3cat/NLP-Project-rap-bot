@@ -67,7 +67,7 @@ class Poet:
                     candidates.append(word)
         if not candidates:
             raise NoRhyme
-        return random.choice(candidates[:5])
+        return random.choice(candidates[:min(len(candidates), 5)])
 
     @classmethod
     def find_closest(cls, elem, bag):
