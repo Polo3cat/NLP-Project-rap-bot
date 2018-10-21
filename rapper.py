@@ -70,15 +70,15 @@ class Poet:
         return random.choice(candidates[:5])
 
     @classmethod
-    def find_closest(cls, word, bag):
-        best_leven = 100
-        best_w = None
-        for w in bag:
-            leven = cls._leven_distance(word, w)
+    def find_closest(cls, elem, bag):
+        best_leven = 1000
+        best_elem = elem
+        for e in bag:
+            leven = cls._leven_distance(elem, e)
             if leven < best_leven:
                 best_leven = leven
-                best_w = w
-        return best_w
+                best_elem = e
+        return best_elem
 
     def tokenize(self, sentence):
         return self._nltki.tokenize(sentence)
@@ -116,10 +116,12 @@ class BaseRapper(metaclass=MetaRapper):
         :rtype str | None
         """
         tokens = self._poet.tokenize(sentence)
-        gram_struct = self._poet.just_tags(tokens)
-        if tokens and gram_struct:
-            return self._answer(tokens, gram_struct)
-        return None
+        og_struct = self._poet.just_tags(tokens)
+        if og_struct in self._grammar:
+            gram_struct = self._grammar[og_struct]
+        else:
+            gram_struct = self._grammar[Poet.find_closest(og_struct, self._grammar)]
+        return self._answer(tokens, gram_struct)
 
     def _answer(self, tokens, gram_struct):
         raise NotImplementedError
@@ -203,8 +205,9 @@ class ExhaustiveRapper(BaseRapper):
         row = -self._table['table'].getrow(silly_hash[word]).toarray()[0, :]  # negate to use ascending order
         drow = np.arange(len(row))
         stacked = np.array(list(zip(row, drow)), dtype=[('probability', float), ('index', int)])
+        np.random.shuffle(stacked)
         row = np.sort(stacked, kind='heapsort', order='probability')
-        it = np.nditer(row, flags=['f_index'])
+        it = np.nditer(row, flags=['c_index'], op_flags=['readonly', 'readonly'])
         while not it.finished:
             w = silly_vector[it[0]['index']]
             if w[1] == structure[-1]:
