@@ -2,6 +2,7 @@
 
 import argparse
 import pickle
+import multiprocessing
 from csv import DictReader
 
 from modelize.counter import Counter
@@ -24,36 +25,87 @@ nltki = utils.interfaces.NltkInterface
 if args.g:
     nltki = utils.interfaces.NltkInterfaceGeneralised
 
-counter = Counter()
-grammer = Grammer()
-
+cpus = multiprocessing.cpu_count()
+ls = 0
 with open(args.i, newline='') as i:
     csvreader = DictReader(i, dialect='unix')
-    for song in csvreader:
-        lyrics = song['lyrics']
-        if not lyrics:
-            continue
-        lines = lyrics.splitlines()
-        song_tags = []
-        for line in lines:
-            tokens = nltki.tokenize(line)
-            tagged_tokens = nltki.tag(tokens)
-            song_tags.append(nltki.strip_words(tagged_tokens))
-            counter.feed(tagged_tokens)
-        grammer.feed(song_tags)
+    for l in csvreader:
+        ls += 1
 
-output = {'grammar': grammer.result(), 'vocabulary': counter.vocabulary(), }
+ch_size = ls / cpus
+remainder = ls % cpus
+slices = []
+for i in range(cpus):
+    begin = (i * ch_size) + (i if i < remainder else remainder)
+    end = begin+ch_size+(i < remainder)
+    slices.append([int(begin), int(end)])
 
-if args.m == 'vector':
-    predecessorer = Predecessorer(counter)
-    output['predecessors'] = predecessorer.result()
-    with open(args.i, newline='') as i:
-        csvreader = DictReader(i, dialect='unix')
-        vectorizer = Vectorizer(csvreader)
-        output['ftvectors'] = vectorizer.result()
-else:
-    tabler = Tabler(counter)
-    output['table'] = tabler.result()
 
-with open(args.o, mode='bw') as f:
-    pickle.dump(output, f)
+def worker(init, fin, input_name, output_name, m):
+    counter = Counter()
+    grammer = Grammer()
+
+    with open(input_name, newline='') as input_file:
+        csvreader = DictReader(input_file, dialect='unix')
+        count = 0
+        song = next(csvreader)
+        while count < init:
+            count += 1
+            song = next(csvreader)
+        while count < fin:
+            print(multiprocessing.current_process().name, 'Doing:', song['index'])
+            lyrics = song['lyrics']
+            if not lyrics:
+                try:
+                    song = next(csvreader)
+                    count += 1
+                    continue
+                except StopIteration:
+                    break;
+            lines = lyrics.splitlines()
+            song_tags = []
+            for line in lines:
+                tokens = nltki.tokenize(line)
+                tagged_tokens = nltki.tag(tokens)
+                song_tags.append(nltki.strip_words(tagged_tokens))
+                counter.feed(tagged_tokens)
+            grammer.feed(song_tags)
+            count += 1
+            try:
+                song = next(csvreader)
+            except StopIteration:
+                break
+
+    output = {'grammar': grammer.result(), 'vocabulary': counter.vocabulary(), }
+
+    if m == 'vector':
+        predecessorer = Predecessorer(counter)
+        output['predecessors'] = predecessorer.result()
+        with open(input_name, newline='') as input_file:
+            csvreader = DictReader(input_file, dialect='unix')
+            vectorizer = Vectorizer(csvreader)
+            output['ftvectors'] = vectorizer.result()
+    else:
+        tabler = Tabler(counter)
+        output['table'] = tabler.result()
+
+    with open(output_name, mode='bw') as f:
+        pickle.dump(output, f)
+
+
+processes = []
+file_names = []
+num = 0
+for slice_ in slices:
+    fn = args.o + str(num)
+    p = multiprocessing.Process(target=worker, args=(*slice_, args.i, fn, args.m))
+    processes.append(p)
+    file_names.append(fn)
+    num += 1
+for p in processes:
+    p.start()
+for p in processes:
+    p.join()
+
+for fn in file_names:
+    
