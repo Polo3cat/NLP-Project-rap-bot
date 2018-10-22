@@ -49,7 +49,6 @@ class Poet:
             for j in json:
                 word = j['word']
                 p = self._nltki.tag_word(word)
-                print(word, p)
                 if p == pos and word in bag:
                     return word
         raise NoRhyme
@@ -85,6 +84,29 @@ class Poet:
 
     def just_tags(self, tokens):
         return self._nltki.just_tags(tokens)
+
+    def rhyme_best(self, word):
+        for uri in self._uris:
+            url = uri.format(word)
+            r = requests.get(url)
+            json = r.json()
+            for j in json:
+                word = j['word']
+                p = self._nltki.tag_word(word)
+                return word, p
+        raise NoRhyme
+
+    @classmethod
+    def find_closest_with(cls, elem, pos, bag):
+        best_leven = 1000
+        best_elem = elem
+        for e in bag:
+            if e:
+                leven = cls._leven_distance(elem, e)
+                if leven < best_leven and e[-1] == pos:
+                    best_leven = leven
+                    best_elem = e
+        return best_elem
 
 
 class MetaRapper(type):
@@ -189,13 +211,20 @@ class ExhaustiveRapper(BaseRapper):
     def _answer(self, tokens, gram_struct):
         try:
             rhyme = self._poet.rhyme_random(tokens[-1], gram_struct[-1])
-            answer = [rhyme]
-            if rhyme not in self._vocabulary[gram_struct[-1]]:
-                rhyme = self._poet.find_closest(rhyme, self._vocabulary[gram_struct[-1]])
-            answer = answer + self._rec_answer((rhyme, gram_struct[-1]), gram_struct[:-1])
-            return " ".join(reversed(answer)).capitalize()
         except NoRhyme:
+            try:
+                rhyme, pos = self._poet.rhyme_best(tokens[-1])
+            except NoRhyme:
+                return None
+            gram_struct = Poet.find_closest_with(gram_struct, pos, self._grammar)
+        answer = [rhyme]
+        if rhyme not in self._vocabulary[gram_struct[-1]]:
+            rhyme = self._poet.find_closest(rhyme, self._vocabulary[gram_struct[-1]])
+        rec = self._rec_answer((rhyme, gram_struct[-1]), gram_struct[:-1])
+        if not rec:
             return None
+        answer = answer + rec
+        return " ".join(reversed(answer)).capitalize()
 
     def _rec_answer(self, word, structure):
         if not structure:
@@ -205,12 +234,11 @@ class ExhaustiveRapper(BaseRapper):
         row = -self._table['table'].getrow(silly_hash[word]).toarray()[0, :]  # negate to use ascending order
         drow = np.arange(len(row))
         stacked = np.array(list(zip(row, drow)), dtype=[('probability', float), ('index', int)])
-        np.random.shuffle(stacked)
         row = np.sort(stacked, kind='heapsort', order='probability')
         it = np.nditer(row, flags=['c_index'], op_flags=['readonly', 'readonly'])
         while not it.finished:
             w = silly_vector[it[0]['index']]
-            if w[1] == structure[-1]:
+            if w[1] == structure[-1] and it[0]['probability']:
                 ans = self._rec_answer(w, structure[:-1])
                 if ans is not None:
                     return [w[0]] + ans
