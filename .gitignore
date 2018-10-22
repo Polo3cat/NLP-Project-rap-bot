@@ -108,6 +108,7 @@ venv.bak/
 
 # pickle data
 *.pkl
+!docs/gen-top-hip.pkl
 
 # csv
 *.csv
